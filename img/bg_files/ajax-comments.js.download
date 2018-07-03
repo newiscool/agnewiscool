@@ -1,0 +1,83 @@
+if (typeof jQuery != 'undefined') {
+	
+	jQuery('document').ready(function($){
+
+		var commentform  = '#commentform';
+		var statusdiv    = '#comment-status';
+		var respond      = '#respond';
+		var commentlist  = '.comment-list';
+		var textarea     = '#respond textarea';
+		var repeatReview = false;
+		
+		$(document).on('submit', commentform, function(e) {
+			e.preventDefault();
+			if ($('.commentlist').length) {
+				var commentlist = '.commentlist';
+			} else {
+				var commentlist = '.comment-list';
+			}
+			$(statusdiv).remove();
+			$(commentform).prepend('<div id="comment-status"></div>');
+			$.ajax({
+				beforeSend: function(xhr){
+					xhr.setRequestHeader("If-Modified-Since","0");
+					$(statusdiv).html('<p>Processing...</p>');
+				},
+				type: 'post',
+				url: $(this).attr('action'),
+				data: $(this).serialize(),
+				dataType: 'html',
+				error: function(xhr){
+					if (xhr.status == 429) {
+						$(statusdiv).html('<p><strong>ERROR : </strong>Please slow down, you are posting to fast!</p>');
+						return false;
+					} else if (xhr.status == 408) {
+						$(statusdiv).html('<p><strong>ERROR : </strong>Sorry, an error occur, please try again or later.</p>');
+						return false;
+					} else if (xhr.status == 409) {
+						$(statusdiv).html('<p><strong>ERROR : </strong>Server time out, please try again.</p>');
+						return false;
+					} else if (xhr.status == 444) {
+						$(statusdiv).html('<p><strong>ERROR : </strong>No response, please try again.</p>');
+						return false;
+					}
+				},
+				success: function(data){
+					var error = data.replace(/(<\/?)html( .+?)?>/gi,'$1NOTHTML$2>',data);
+    					error = error.replace(/(<\/?)body( .+?)?>/gi,'$1NOTBODY$2>',error);
+					
+					if ($(error).find('#error-page').length) {
+						$(statusdiv).html($(error).find('#error-page').html());
+					} else if ($('.commentlist, .comment-list').length) {	
+						if ($('#reviews .commentlist').length) {
+							$(statusdiv).html('<p>Thanks for your review. We appreciate your response.</p>');
+						} else {
+							$(statusdiv).html('<p>Thanks for your comment. We appreciate your response.</p>');
+						}
+						$newComList = $(data).find(commentlist);                   
+						if ($(respond).parents('li.comment').length > 0) {                   
+							$(respond).insertAfter(commentlist);
+							$('#cancel-comment-reply-link').click();
+						}
+						if ($(commentlist).length > 0) {
+							$(commentlist).replaceWith($newComList);
+						} else {
+							$(respond).before($newComList);
+						}
+						$(commentlist).replaceWith($newComList);
+						setTimeout(function(){
+							$(statusdiv).remove();
+							$(textarea).val(''); 
+						}, 3000);
+					} else {
+						$(statusdiv).html('<p><strong>ERROR : </strong>Sorry, an error occur, please try again or later.</p>');
+					}
+					
+				}
+			});
+			return false;
+		});
+		
+	});
+	
+}
